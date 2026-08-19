@@ -343,8 +343,11 @@
       formData.set("replyto", String(formData.get("email") || ""));
       const response = await fetch(reviewForm.action, {
         method: "POST",
-        body: formData,
-        headers: { Accept: "application/json" }
+        body: JSON.stringify(Object.fromEntries(formData)),
+        headers: {
+          "Content-Type": "application/json",
+          Accept: "application/json"
+        }
       });
       const result = await response.json().catch(() => null);
 
