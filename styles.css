@@ -2761,6 +2761,14 @@ html:not(.js) .testimonial-controls {
   text-align: center;
 }
 
+.form-demo-message.is-pending {
+  color: var(--muted);
+}
+
+.form-demo-message.is-error {
+  color: var(--error);
+}
+
 .google-reviews-link {
   min-height: 44px;
   display: flex;

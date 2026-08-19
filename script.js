@@ -232,7 +232,7 @@
     });
   });
 
-  /* Non-transmitting preview form. */
+  /* Review request form. */
   const reviewForm = document.querySelector("[data-review-form]");
   const reviewGoal = document.querySelector("[data-review-goal]");
   const ticketGoal = document.querySelector("[data-ticket-goal]");
@@ -240,6 +240,7 @@
   const errorSummary = document.querySelector("[data-error-summary]");
   const formMessage = document.querySelector("[data-form-message]");
   const formSubmit = document.querySelector("[data-form-submit]");
+  const defaultSubmitLabel = formSubmit?.textContent || "Request my KiwiSaver review";
   let validSweepPlayed = false;
 
   const fieldMessages = {
@@ -279,28 +280,41 @@
     formSubmit?.classList.add("is-valid-sweep");
   }
 
+  function hideFormMessage() {
+    if (!formMessage) return;
+    formMessage.hidden = true;
+    formMessage.classList.remove("is-error", "is-pending");
+  }
+
+  function showFormMessage(message, state = "success") {
+    if (!formMessage) return;
+    formMessage.textContent = message;
+    formMessage.classList.toggle("is-error", state === "error");
+    formMessage.classList.toggle("is-pending", state === "pending");
+    formMessage.hidden = false;
+  }
+
   reviewForm?.querySelectorAll("input, select, textarea").forEach((field) => {
     field.addEventListener("blur", () => validateField(field));
     field.addEventListener("input", () => {
       if (field.getAttribute("aria-invalid") === "true") validateField(field);
-      if (formMessage) formMessage.hidden = true;
+      hideFormMessage();
       checkForValidSweep();
     });
     field.addEventListener("change", () => {
       updateReviewSummary();
       if (field.type !== "radio" && field.getAttribute("aria-invalid") === "true") validateField(field);
-      if (formMessage) formMessage.hidden = true;
+      hideFormMessage();
       checkForValidSweep();
     });
   });
 
   updateReviewSummary();
 
-  function handlePreviewForm(event) {
+  async function handleReviewForm(event) {
     event.preventDefault();
-    // Intentionally disabled for this mockup: no information is transmitted or stored.
     if (!reviewForm) return;
-    if (formMessage) formMessage.hidden = true;
+    hideFormMessage();
 
     const fields = [...reviewForm.querySelectorAll("input, select, textarea")].filter(
       (field) => field.type !== "radio" || field.checked
@@ -317,10 +331,46 @@
     }
 
     if (errorSummary) errorSummary.hidden = true;
-    if (formMessage) formMessage.hidden = false;
+    reviewForm.setAttribute("aria-busy", "true");
+    if (formSubmit) {
+      formSubmit.disabled = true;
+      formSubmit.textContent = "Sending request…";
+    }
+    showFormMessage("Sending your request securely…", "pending");
+
+    try {
+      const formData = new FormData(reviewForm);
+      formData.set("replyto", String(formData.get("email") || ""));
+      const response = await fetch(reviewForm.action, {
+        method: "POST",
+        body: formData,
+        headers: { Accept: "application/json" }
+      });
+      const result = await response.json().catch(() => null);
+
+      if (!response.ok || !result?.success) {
+        throw new Error(result?.message || "The form could not be submitted.");
+      }
+
+      reviewForm.reset();
+      reviewForm.querySelectorAll('[aria-invalid="true"]').forEach((field) => field.setAttribute("aria-invalid", "false"));
+      reviewForm.querySelectorAll(".field-error").forEach((error) => { error.textContent = ""; });
+      validSweepPlayed = false;
+      formSubmit?.classList.remove("is-valid-sweep");
+      updateReviewSummary();
+      showFormMessage("Thanks — your request has been sent to Ryan.");
+    } catch (error) {
+      showFormMessage("We couldn't send your request. Please try again or email Ryan directly.", "error");
+    } finally {
+      reviewForm.removeAttribute("aria-busy");
+      if (formSubmit) {
+        formSubmit.disabled = false;
+        formSubmit.textContent = defaultSubmitLabel;
+      }
+    }
   }
 
-  reviewForm?.addEventListener("submit", handlePreviewForm);
+  reviewForm?.addEventListener("submit", handleReviewForm);
   if (formSubmit) {
     formSubmit.type = "submit";
     formSubmit.disabled = false;
